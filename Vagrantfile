@@ -27,7 +27,8 @@ Vagrant.configure("2") do |config|
       apt-get install -y -qq ca-certificates curl gnupg
 
       install -m 0755 -d /etc/apt/keyrings
-      curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+      rm -f /etc/apt/keyrings/docker.gpg
+      curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --batch --yes --dearmor -o /etc/apt/keyrings/docker.gpg
       chmod a+r /etc/apt/keyrings/docker.gpg
 
       echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
@@ -43,8 +44,9 @@ https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_C
       echo "✅ Docker installé : $(docker --version)"
       echo "✅ Docker Compose : $(docker compose version)"
 
-      # Copier les fichiers du lab
-      cp -r /vagrant/configs /opt/monitoring/
+      # Créer le répertoire monitoring et copier les fichiers du lab
+      mkdir -p /opt/monitoring/configs
+      cp -r /vagrant/configs/. /opt/monitoring/configs/
       cp /vagrant/docker-compose.yml /opt/monitoring/
       # Créer alertmanager.yml depuis l'exemple si absent
       [ -f /opt/monitoring/configs/alertmanager.yml ] || \
