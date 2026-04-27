@@ -1,0 +1,67 @@
+# =====================================================
+# alertmanager.yml — EXEMPLE (copier vers alertmanager.yml)
+# =====================================================
+# IMPORTANT : Ne pas committer alertmanager.yml avec de vrais
+# credentials. Ce fichier .example est versionné.
+# =====================================================
+
+global:
+  smtp_from: 'alertmanager@mediaschool.local'
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_auth_username: 'ton-email@gmail.com'
+  smtp_auth_password: 'ton-app-password-gmail'  # Voir docs/03
+  smtp_require_tls: true
+  resolve_timeout: 5m
+
+# ─── Route principale ───────────────────────────────
+route:
+  group_by: ['alertname', 'severity']
+  group_wait: 30s          # Attendre 30s avant d'envoyer (agréger les alertes du même groupe)
+  group_interval: 5m       # Attendre 5min avant de réenvoyer pour un groupe existant
+  repeat_interval: 4h      # Rappeler une alerte active toutes les 4h
+  receiver: 'email-infra'  # Récepteur par défaut
+
+  routes:
+    # Alertes critiques → email immédiat + Slack
+    - match:
+        severity: critical
+      receiver: 'critical-channel'
+      group_wait: 10s       # Envoyer rapidement pour les critiques
+      repeat_interval: 1h
+
+    # Alertes warning → email groupé seulement
+    - match:
+        severity: warning
+      receiver: 'email-infra'
+
+# ─── Inhibitions ───────────────────────────────────
+# Si le service est DOWN (critical), ne pas envoyer aussi les alertes warning
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['instance', 'alertname']
+
+# ─── Récepteurs ─────────────────────────────────────
+receivers:
+  - name: 'email-infra'
+    email_configs:
+      - to: 'admin-infra@mediaschool.local'
+        send_resolved: true
+        headers:
+          Subject: '[INFRA] {{ .GroupLabels.alertname }} - {{ .Status | toUpper }}'
+
+  - name: 'critical-channel'
+    email_configs:
+      - to: 'admin-infra@mediaschool.local'
+        send_resolved: true
+        headers:
+          Subject: '[🔴 CRITIQUE] {{ .GroupLabels.alertname }} - {{ .Status | toUpper }}'
+    # Décommenter pour activer Slack :
+    # slack_configs:
+    #   - api_url: 'https://hooks.slack.com/services/TON/WEBHOOK/ICI'
+    #     channel: '#alertes-infra'
+    #     title: '{{ .GroupLabels.alertname }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+    #     send_resolved: true

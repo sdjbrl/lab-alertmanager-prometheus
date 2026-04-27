@@ -1,0 +1,81 @@
+groups:
+  - name: infrastructure_critique
+    rules:
+
+      # ─── Service DOWN ────────────────────────────────
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "🔴 Service DOWN : {{ $labels.job }} sur {{ $labels.instance }}"
+          description: "Le service {{ $labels.job }} est injoignable depuis 2 minutes."
+
+      # ─── CPU ─────────────────────────────────────────
+      - alert: HighCpuUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "⚠️ CPU élevé sur {{ $labels.instance }}"
+          description: "CPU à {{ $value | printf \"%.1f\" }}% depuis 5 minutes."
+
+      - alert: CriticalCpuUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "🔴 CPU CRITIQUE sur {{ $labels.instance }}"
+          description: "CPU à {{ $value | printf \"%.1f\" }}% depuis 2 minutes. Intervention requise."
+
+      # ─── RAM ─────────────────────────────────────────
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "⚠️ RAM élevée sur {{ $labels.instance }}"
+          description: "RAM utilisée à {{ $value | printf \"%.1f\" }}%."
+
+      # ─── DISQUE ──────────────────────────────────────
+      - alert: DiskSpaceWarning
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.lxcfs|overlay"} / node_filesystem_size_bytes) * 100 < 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "⚠️ Espace disque faible sur {{ $labels.instance }}"
+          description: "Partition {{ $labels.mountpoint }} : {{ $value | printf \"%.1f\" }}% disponible."
+
+      - alert: DiskSpaceCritical
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.lxcfs|overlay"} / node_filesystem_size_bytes) * 100 < 10
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "🔴 Disque CRITIQUE sur {{ $labels.instance }}"
+          description: "Partition {{ $labels.mountpoint }} : seulement {{ $value | printf \"%.1f\" }}% disponible !"
+
+      # ─── LOAD ────────────────────────────────────────
+      - alert: HighSystemLoad
+        expr: node_load5 > (count by(instance) (node_cpu_seconds_total{mode="idle"})) * 1.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "⚠️ Charge système élevée sur {{ $labels.instance }}"
+          description: "Load average 5min = {{ $value | printf \"%.2f\" }}."
+
+      # ─── RÉSEAU ──────────────────────────────────────
+      - alert: NetworkErrorsHigh
+        expr: rate(node_network_receive_errs_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "⚠️ Erreurs réseau sur {{ $labels.instance }}"
+          description: "Erreurs réseau sur l'interface {{ $labels.device }} : {{ $value | printf \"%.1f\" }}/s."
